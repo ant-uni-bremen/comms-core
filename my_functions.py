@@ -10,7 +10,7 @@ import os
 import psutil
 import json
 import numpy as np
-from my_math_operations import int2bin
+from .my_math_operations import int2bin
 # Only for Levenshtein distance
 import jellyfish
 # Saving functions
@@ -85,7 +85,8 @@ class filename_module():
         '''Generates path name
         '''
         self.path = os.path.join(
-            self.ospath, self.mod, '{}x{}'.format(self.Nt, self.Nr))  # '/', '\\'
+            # '/', '\\'
+            self.ospath, self.mod, '{}x{}'.format(self.Nt, self.Nr))
         return self.path
 
     def generate_pathfile_MIMO(self):
@@ -453,7 +454,8 @@ class performance_measures():
                 stop_crit = np.sum(crit) < self.Nerr_min  # only # errors
             else:
                 stop_crit = np.sum(crit) < self.Nerr_min and (
-                    len(crit) < self.it_max)  # errors + maximum number of iterations
+                    # errors + maximum number of iterations
+                    len(crit) < self.it_max)
         else:  # if no stopping criterion selected, the number of iterations is used as stopping criterion
             stop_crit = (len(self.N_ber) < self.it_max)
         return stop_crit
@@ -766,281 +768,5 @@ class performance_measures():
             np.sum(self.sel_crit()), self.Nerr_min, self.it_max)
         return print_str
 
-
-# Saving and filename----------------------------------------------------
-
-class filename_module():
-    '''Class responsible for file names
-    For CMDNet/MIMO simulations
-    '''
-    # Class Attribute
-    name = 'File name creator'
-    # Initializer / Instance Attributes
-
-    def __init__(self, typename, path, algo, fn_ext, sim_set, code_set=0):
-        # Inputs
-        self.ospath = path
-        self.typename = typename
-        self.filename = ''
-        self.path = ''
-        self.pathfile = ''
-        self.mod = sim_set['Mod']
-        self.Nr = sim_set['Nr']
-        self.Nt = sim_set['Nt']
-        self.L = sim_set['L']
-        self.algoname = algo
-        self.fn_ext = fn_ext
-        self.code = code_set
-        # Initialize
-        self.generate_pathfile_MIMO()
-    # Instance methods
-
-    def generate_filename_MIMO(self):
-        '''Generates file name
-        '''
-        if self.code:
-            self.filename = self.typename + self.algoname + '_' + self.mod + '_{}_{}_{}_'.format(
-                self.Nt, self.Nr, self.L) + self.code['code'] + self.code['dec'] + self.code['arch'] + self.fn_ext
-        else:
-            self.filename = self.typename + self.algoname + '_' + self.mod + \
-                '_{}_{}_{}'.format(self.Nt, self.Nr, self.L) + self.fn_ext
-        return self.filename
-
-    def generate_path_MIMO(self):
-        '''Generates path name
-        '''
-        self.path = os.path.join(
-            self.ospath, self.mod, '{}x{}'.format(self.Nt, self.Nr))  # '/', '\\'
-        return self.path
-
-    def generate_pathfile_MIMO(self):
-        '''Generates full path and filename
-        '''
-        self.generate_path_MIMO()
-        self.generate_filename_MIMO()
-        self.pathfile = os.path.join(self.path, self.filename)
-        return self.pathfile
-
-
-class savemodule():
-    '''Class responsible for data saving
-    '''
-    # Class Attribute
-    name = 'Save data'
-    # Initializer / Instance Attributes
-
-    def __init__(self, form='npz'):
-        # Inputs
-        self.json_ending = '.json'
-        self.hdf5_ending = '.hdf5'
-        self.npz_ending = '.npz'
-        self.format = form
-        self.list_str = 'el'
-    # Instance methods
-
-    def check_path(self, pathfile, verbose=0):
-        '''Check for existing path and file, respectively
-        '''
-        path = os.path.dirname(pathfile)
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-            if verbose == 1:
-                print('Created new directory.')
-        else:
-            if os.path.isfile(pathfile):
-                os.remove(pathfile)
-                if verbose == 1:
-                    print('Deleted existing file.')
-        return pathfile
-
-    def save_hdf5(self, pathfile, data, verbose=0):
-        '''Save data to hdf5 file
-        data: data to be saved in hdf5
-        pathfile: path and filename
-        '''
-        def save_nested2hdf5(f, data, name, list_str='el'):
-            '''Save nested data in hdf5 format
-            f: hdf5 group
-            data: nested data to be saved
-            name: name of data to be saved
-            '''
-            if isinstance(data, dict):
-                # Avoid first group at first call?
-                # if name:
-                #     grp = f.create_group(name)
-                # else:
-                #     grp = f
-                grp = f.create_group(name)
-                for key, value in data.items():
-                    save_nested2hdf5(grp, value, key, list_str)
-            elif isinstance(data, list):
-                grp = f.create_group(name)
-                if len(data) > 1:
-                    # lexicographical ordering requires filling with zeros
-                    N_fill = int(np.log10(len(data) - 1) + 1)
-                else:
-                    N_fill = 1
-                for ii, el in enumerate(data):
-                    save_nested2hdf5(grp, el, list_str +
-                                     str(ii).zfill(N_fill), list_str)
-            else:
-                f.create_dataset(name, data=data)  # dset =
-
-        pathfile = pathfile + self.hdf5_ending
-        self.check_path(pathfile, verbose)
-        # Save
-        with h5py.File(pathfile, 'w') as f:
-            save_nested2hdf5(f, data, 'SavedData', list_str=self.list_str)
-        if verbose == 1:
-            print('Saved into "' + pathfile + '".')
-        return pathfile
-
-    def load_hdf5(self, pathfile):
-        '''Save data to hdf5 file
-        load_data: data to be loaded from hdf5 file
-        pathfile: path and filename
-        '''
-        def load_nested2hdf5(data, list_str='el'):
-            '''Load nested data from hdf5 format
-            data: data in hdf5 format
-            '''
-            if isinstance(data, h5py.Group):
-                keylist = list(data.keys())
-                # check for list / before check if elements in subgroup
-                if keylist and keylist[0][0:len(list_str)] == list_str:
-                    dic = []
-                    for value in data.values():
-                        dic.append(load_nested2hdf5(value, list_str))
-                else:
-                    dic = {}
-                    for key, value in data.items():
-                        dic[key] = load_nested2hdf5(value, list_str)
-            else:
-                # dic[data.name] = data.value
-                dic = data.value
-            return dic
-
-        pathfile = pathfile + self.hdf5_ending
-        load_data = None
-        if os.path.isfile(pathfile):
-            with h5py.File(pathfile, 'r') as f:
-                dic = load_nested2hdf5(f, list_str=self.list_str)
-            load_data = dic['SavedData']
-            print('Loaded from "' + pathfile + '".')
-        else:
-            print('File not found.')
-        return load_data
-
-    def save_json(self, pathfile, data, verbose=0):
-        '''Save data to json file
-        data: data to be saved in json
-        pathfile: path and filename
-        '''
-        class py2jsonEncoder(json.JSONEncoder):
-            '''Encoder for dtype conversion to json
-            '''
-
-            def default(self, obj):
-                if isinstance(obj, np.float16):
-                    return obj.astype('float64')
-                if isinstance(obj, np.float32):
-                    return obj.astype('float64')
-                if isinstance(obj, np.int64):
-                    return int(obj)
-                if isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                # Let the base class default method raise the TypeError
-                return json.JSONEncoder.default(self, obj)
-
-        pathfile = pathfile + self.json_ending
-        self.check_path(pathfile, verbose)
-        # Save
-        with open(pathfile, 'w') as outfile:
-            json.dump(data, outfile, indent=4, cls=py2jsonEncoder)
-        if verbose == 1:
-            print('Saved into "' + pathfile + '".')
-        return pathfile
-
-    def load_json(self, pathfile):
-        '''Load data from json file
-        load_data: data to be loaded from json file
-        pathfile: path and filename
-        '''
-        pathfile = pathfile + self.json_ending
-        load_data = None
-        if os.path.isfile(pathfile):
-            with open(pathfile, 'r') as outfile:
-                load_data = json.load(outfile)
-            print('Loaded from "' + pathfile + '".')
-        else:
-            print('File not found.')
-        return load_data
-
-    def save_npz(self, pathfile, data, verbose=0):
-        '''Save data to npz file
-        data: data to be saved in npz
-        pathfile: path and filename
-        '''
-        pathfile = pathfile + self.npz_ending
-        self.check_path(pathfile, verbose)
-        # Save as np.array
-        # for key, value in data.items():
-        #    if isinstance(value, list):
-        #        data[key] = np.array(value)
-        np.savez(pathfile, **data)
-        if verbose == 1:
-            print('Saved into "' + pathfile + '".')
-        return pathfile
-
-    def load_npz(self, pathfile):
-        '''Load data from npz file
-        load_data: data to be loaded from npz file
-        pathfile: path and filename
-        '''
-        pathfile = pathfile + self.npz_ending
-        load_data = None
-        if os.path.isfile(pathfile):
-            load_data = np.load(pathfile)  # , allow_pickle = True)
-            print('Loaded from "' + pathfile + '".')
-        else:
-            print('File not found.')
-        return load_data
-
-    def save(self, pathfile, data, form=None, verbose=0):
-        '''Save data to specified format
-        data: data to be saved in specified format
-        pathfile: path and filename
-        form: Format to be used (npz, hdf5, json)
-        '''
-        if form == None:
-            form = self.format
-        if form == 'npz':
-            self.save_npz(pathfile, data, verbose=verbose)
-        elif form == 'hdf5':
-            self.save_hdf5(pathfile, data, verbose=verbose)
-        elif form == 'json':
-            self.save_json(pathfile, data, verbose=verbose)
-        else:
-            print('This format is not available.')
-        return pathfile
-
-    def load(self, pathfile, form=None):
-        '''Load data from file with specified format
-        load_data: data to be loaded from file with specified format
-        pathfile: path and filename
-        form: Format to be used (npz, hdf5, json)
-        '''
-        if form == None:
-            form = self.format
-        load_data = None
-        if form == 'npz':
-            load_data = self.load_npz(pathfile)
-        elif form == 'hdf5':
-            load_data = self.load_hdf5(pathfile)
-        elif form == 'json':
-            load_data = self.load_json(pathfile)
-        else:
-            print('This format is not available.')
-        return load_data
 
 # EOF

@@ -127,4 +127,24 @@ def bin2int(b, axis=-1, dtype='uint64'):
     return cl
 
 
+def compute_confusion_matrix(true_labels, pred_labels):
+    """
+    Compute the confusion matrix manually.
+
+    Parameters:
+    - true_labels: List or array of true class labels. One-hot
+    - pred_labels: List or array of predicted class labels. One-hot
+    - num_classes: Number of classes in the labels.
+
+    Returns:
+    - Confusion matrix as a 2D numpy array.
+    """
+    num_classes = true_labels.shape[-1]
+    true_labels = np.argmax(true_labels, axis=-1)
+    pred_labels = np.argmax(pred_labels, axis=-1)
+    conf_matrix = np.zeros((num_classes, num_classes), dtype=int)
+    for t, p in zip(true_labels, pred_labels):
+        conf_matrix[t, p] += 1
+    return conf_matrix
+
 # EOF

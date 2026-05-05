@@ -8,22 +8,23 @@ Created on Tue Jan 22 16:49:30 2019
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as K
-from tensorflow.keras import backend as KB
+# import tensorflow.keras as keras
+import keras
+from keras import backend as KB
 
 from packaging import version
 
 # Only imported for Gaussiannoise2 layer
 from tensorflow.python.ops import array_ops
 from tensorflow.python.keras.utils.tf_utils import shape_type_conversion
-from tensorflow.keras.layers import Layer
+from keras.layers import Layer
 
 
 # Training and Custom Layers ------------------------------------------------------------------
 
 # Custom callbacks
 
-class BatchTrackingCallback(K.callbacks.Callback):
+class BatchTrackingCallback(keras.callbacks.Callback):
     '''Log training losses and accuracies after each single batch iteration
     '''
 
@@ -106,8 +107,8 @@ def normalize_input_keras3(inputs, axis=0, eps=0):
     eps: Small constant to avoid numerical problems, e.g., 1e-12, since inputs=0, then NaN!
     '''
     out = inputs / \
-        K.ops.sqrt(K.ops.mean(K.ops.square(inputs) +
-                   eps, axis=axis, keepdims=True))
+        keras.ops.sqrt(keras.ops.mean(keras.ops.square(inputs) +
+                                      eps, axis=axis, keepdims=True))
     return out
 
 
@@ -119,7 +120,7 @@ else:
     normalize_input = normalize_input_legacy
 
 
-@K.utils.register_keras_serializable()
+@keras.saving.register_keras_serializable()
 class NormalizeInputLayer(Layer):
     '''Normalize power of inputs to one
     axis: axis along normalization is performed
@@ -173,7 +174,7 @@ class GaussianNoise2tf26(Layer):
         super(GaussianNoise2tf26, self).__init__(**kwargs)
         self.supports_masking = True
         self.stddev0 = stddev
-        init = K.initializers.Constant(value=self.stddev0)
+        init = keras.initializers.Constant(value=self.stddev0)
         self.stddev = self.add_weight(
             "stddev", trainable=False, shape=(2), initializer=init)
         # self.stddev = tf.Variable(name = "stddev", trainable = False, initial_value = stddev, shape = ())
@@ -211,28 +212,27 @@ class GaussianNoise2tf26(Layer):
 
 
 def noised_keras3(inputs, stddev_range):
-    # if stddev_range[0] == stddev_range[1]:
-    #     stddev = stddev_range[0]
-    # else:
-    # Dynamic shape
-    shape = K.ops.shape(inputs)
-    batch_size = K.ops.expand_dims(shape[0], axis=0)
+    shape = keras.ops.shape(inputs)
+    batch_size = keras.ops.expand_dims(shape[0], axis=0)
+    ones_shape = keras.ops.ones_like(shape[1:], dtype="int32")
+    stddev_shape = keras.ops.concatenate([batch_size, ones_shape], axis=0)
 
-    # Ones for all dims after batch
-    ones_shape = K.ops.ones_like(shape[1:], dtype="int32")
-    stddev_shape = K.ops.concatenate([batch_size, ones_shape], axis=0)
+    log_min = keras.ops.log(keras.ops.cast(stddev_range[0], inputs.dtype))
+    log_max = keras.ops.log(keras.ops.cast(stddev_range[1], inputs.dtype))
 
-    # Sample log stddev uniformly from log range, then exponentiate
-    log_stddev = K.random.uniform(
-        shape=stddev_shape,
-        minval=K.ops.log(stddev_range[0]),
-        maxval=K.ops.log(stddev_range[1]),
-        dtype=inputs.dtype
+    log_stddev = keras.ops.cond(
+        keras.ops.equal(log_min, log_max),
+        lambda: keras.ops.broadcast_to(log_min, stddev_shape),
+        lambda: keras.random.uniform(
+            shape=stddev_shape,
+            minval=log_min,
+            maxval=log_max,
+            dtype=inputs.dtype)
     )
-    stddev = K.ops.exp(log_stddev)
 
-    # Generate noise with mean=0, std=1, same shape as inputs
-    noise = K.random.normal(
+    stddev = keras.ops.exp(log_stddev)
+
+    noise = keras.random.normal(
         shape=shape,
         mean=0.0,
         stddev=1.0,
@@ -244,26 +244,29 @@ def noised_keras3(inputs, stddev_range):
 
 @tf.function
 def noised_legacy(inputs, stddev_range):
-    # if stddev_range[0] == stddev_range[1]:
-    #     stddev = stddev_range[0]
-    # else:
-    # Compute shape for stddev: [batch_size, 1, 1, ...] matching inputs rank
     shape = tf.shape(inputs)
     batch_size = shape[0]
-    # Ones for all dims after batch
     ones_shape = tf.ones_like(shape[1:], dtype=tf.int32)
     stddev_shape = tf.concat([[batch_size], ones_shape], axis=0)
 
-    # Sample log stddev uniformly from log range, then exponentiate
-    log_stddev = tf.random.uniform(
-        shape=stddev_shape,
-        minval=tf.math.log(stddev_range[0]),
-        maxval=tf.math.log(stddev_range[1]),
-        dtype=inputs.dtype
+    log_min = tf.cast(tf.math.log(stddev_range[0]), inputs.dtype)
+    log_max = tf.cast(tf.math.log(stddev_range[1]), inputs.dtype)
+
+    # When min == max, random.uniform(min, max) can produce NaN
+    # so we handle both cases explicitly
+    log_stddev = tf.cond(
+        log_min == log_max,
+        lambda: tf.fill(stddev_shape, log_min),          # fixed stddev
+        lambda: tf.random.uniform(                        # random stddev
+            shape=stddev_shape,
+            minval=log_min,
+            maxval=log_max,
+            dtype=inputs.dtype
+        )
     )
+
     stddev = tf.exp(log_stddev)
 
-    # Generate noise with mean=0, std=1, same shape as inputs
     noise = tf.random.normal(
         shape=shape,
         mean=0.0,
@@ -271,7 +274,6 @@ def noised_legacy(inputs, stddev_range):
         dtype=inputs.dtype
     )
 
-    # Add scaled noise to inputs
     return inputs + stddev * noise
 
 
@@ -305,7 +307,7 @@ def gaussian_noise3(inputs, stddev):
     return output
 
 
-@K.utils.register_keras_serializable()
+@keras.saving.register_keras_serializable()
 class GaussianNoise2(Layer):
     """Modified GaussianNoise(Layer) for Tenorflow >= 2.10
     1. to be active in evaluation and 2. to allow SNR range in training
@@ -338,7 +340,7 @@ class GaussianNoise2(Layer):
             self.stddev0 = [stddev, stddev]
         else:
             self.stddev0 = list(stddev)
-        init = K.initializers.Constant(value=self.stddev0)
+        init = keras.initializers.Constant(value=self.stddev0)
         self.stddev = self.add_weight(
             name="stddev", trainable=False, shape=(2,), initializer=init)
 
@@ -351,9 +353,8 @@ class GaussianNoise2(Layer):
         config.update({"stddev": self.stddev0})
         return config
 
-    # @shape_type_conversion
-    # def compute_output_shape(self, input_shape):
-    #     return input_shape
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 def test_equal(value1, value2, tol=1e-7):
@@ -381,7 +382,7 @@ def test_equal(value1, value2, tol=1e-7):
 def test_gaussian_noise_layer(snr_limits=[-4, 6], experiment_size=1e9):
     '''Test the GaussianNoise2 Layer
     '''
-    import my_math_operations as mops
+    from . import my_math_operations as mops
     # snr_limits = [-20, 6]
     sigma_limits = []
     for el in snr_limits:
@@ -400,11 +401,11 @@ def test_gaussian_noise_layer(snr_limits=[-4, 6], experiment_size=1e9):
 
     # Test random_uniform and exp-log transform
     try:
-        stddev = K.ops.exp(
-            K.random.uniform(
+        stddev = keras.ops.exp(
+            keras.random.uniform(
                 shape=stddev_target_shape,
-                minval=K.ops.log(sigma_limits[0]),
-                maxval=K.ops.log(sigma_limits[1])
+                minval=keras.ops.log(sigma_limits[0]),
+                maxval=keras.ops.log(sigma_limits[1])
             )
         )
     except (ImportError, AttributeError):

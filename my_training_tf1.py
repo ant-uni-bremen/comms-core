@@ -10,7 +10,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as KB
 
-from my_functions import print_time
+from .my_functions import print_time
 
 
 # ------ Training functions - Tensorflow 1 (CMDNet Research) ---------------------

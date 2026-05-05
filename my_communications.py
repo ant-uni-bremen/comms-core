@@ -7,7 +7,7 @@ Created on Tue Jan 22 16:49:30 2019
 """
 
 import numpy as np
-import my_math_operations as mop
+from . import my_math_operations as mop
 
 
 # Basic communication channel model: Additive White Gaussian Noise

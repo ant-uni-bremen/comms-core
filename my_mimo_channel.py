@@ -9,10 +9,13 @@ Created on Tue Jan 22 16:49:30 2019
 import numpy as np
 import scipy as sp
 import scipy.integrate as integrate
-from tensorflow.keras.utils import to_categorical as konehot
+# import tensorflow.keras as keras
+# from tensorflow.keras.utils import to_categorical as konehot
+# import keras
+from keras.utils import to_categorical as konehot
 
-import my_math_operations as mop
-import my_communications as com
+from . import my_math_operations as mop
+from . import my_communications as com
 
 
 # Channel Simulation -------------------------------------------------------

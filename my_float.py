@@ -9,7 +9,7 @@ Created on Tue Jan 22 16:49:30 2019
 import numpy as np
 from matplotlib import pyplot as plt
 
-import my_math_operations as mop
+from . import my_math_operations as mop
 
 
 # Float Toolbox: Functions for manipulation of floating point numbers
