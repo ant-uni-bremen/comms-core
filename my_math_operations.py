@@ -147,4 +147,24 @@ def compute_confusion_matrix(true_labels, pred_labels):
         conf_matrix[t, p] += 1
     return conf_matrix
 
+
+def logarithmic_scale(N):
+    result = []
+    power = 0
+    while True:
+        base = 10 ** power
+        for multiplier in range(1, 10):
+            val = multiplier * base
+            if val > N:
+                return result
+            result.append(val)
+        power += 1
+
+
+def logarithmic_scale_inclusive(N):
+    scale = logarithmic_scale(N)
+    if scale[-1] != N:
+        scale.append(N)
+    return scale
+
 # EOF

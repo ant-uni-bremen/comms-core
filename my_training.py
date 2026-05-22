@@ -48,6 +48,27 @@ class BatchTrackingCallback(keras.callbacks.Callback):
 # Convenience Functions
 
 
+def new_optimizer(opt_class=keras.optimizers.SGD, opt_config={"learning_rate": 0.01, "momentum": 0.9}):
+    return opt_class(**opt_config)
+
+
+def epoch2iterationboundaries(epoch_bound, dataset_size, batch_size):
+    ''' Calculates SGD iteration boundaries from epoch boundaries, dataset size and batch size
+    '''
+    iterations_per_epoch = dataset_size / batch_size
+    boundaries = epochiterations2iterationboundaries(
+        epoch_bound, iterations_per_epoch)
+    return boundaries
+
+
+def epochiterations2iterationboundaries(epoch_bound, iterations_per_epoch):
+    ''' Calculates SGD iteration boundaries from epoch boundaries and iterations per epoch
+    '''
+    boundaries = list(np.round(np.array(epoch_bound)
+                               * iterations_per_epoch).astype('int'))
+    return boundaries
+
+
 def gpu_select(number=0, memory_growth=True, cpus=0):
     '''Select/deactivate GPU in Tensorflow 2
     Configure to use only a single GPU and allocate only as much memory as needed
