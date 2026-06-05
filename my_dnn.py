@@ -10,7 +10,7 @@ import numpy as np
 # import tensorflow.keras as keras
 import keras
 
-from . import my_training as mt
+from . import my_layers_keras3 as mt
 
 
 # Custom DNN architectures -------------------------------------------------------
@@ -66,7 +66,7 @@ def simple_CNN(shape=(28, 28, 1), classes=10, n_tx=0, n_rx=0, axnorm=0, sigma=np
         x = keras.layers.Dense(
             n_tx, activation='linear', kernel_regularizer=weight_decay)(x)
     outtx = mt.normalize_input(x, axis=axnorm, eps=1e-12)
-    tx = keras.layers.Model(inputs=inputs, outputs=outtx)
+    tx = keras.Model(inputs=inputs, outputs=outtx)
 
     # Rx
     inrx = keras.layers.Input(shape=tx.layers[-1].output_shape[1:])
@@ -79,14 +79,14 @@ def simple_CNN(shape=(28, 28, 1), classes=10, n_tx=0, n_rx=0, axnorm=0, sigma=np
 
     # Original CNN end structure
     outputs = keras.layers.Dense(classes, activation='softmax')(x)
-    rx = keras.layers.Model(inputs=inrx, outputs=outputs)
+    rx = keras.Model(inputs=inrx, outputs=outputs)
 
     # Model for autoencoder training
     intx = keras.layers.Input(shape)
     outtx = tx(intx)
     channel = mt.GaussianNoise2(sigma)(outtx)
     outrx = rx(channel)
-    model = keras.layers.Model(inputs=intx, outputs=outrx)
+    model = keras.Model(inputs=intx, outputs=outrx)
 
     return model, tx, rx
 
