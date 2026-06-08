@@ -8,7 +8,7 @@ Created on Tue Jan 22 16:49:30 2019
 import numpy as np
 # import tensorflow.keras as keras
 import keras
-from keras.utils import to_categorical as konehot
+from keras.utils.np_utils import to_categorical as konehot
 import cvxpy as cp         # only for SDR detector
 from . import my_math_operations as mop
 from . import my_communications as com

@@ -59,7 +59,6 @@ def normalize_input(inputs, axis=0, eps=0):
     return out
 
 
-@keras.saving.register_keras_serializable()
 class NormalizeInputLayer(Layer):
     '''Normalize power of inputs to one
     axis: axis along normalization is performed
@@ -207,7 +206,6 @@ def gaussian_noise3(inputs, stddev):
     return output
 
 
-@keras.saving.register_keras_serializable()
 class GaussianNoise2(Layer):
     """Modified GaussianNoise(Layer) for Tenorflow >= 2.10
     1. to be active in evaluation and 2. to allow SNR range in training
